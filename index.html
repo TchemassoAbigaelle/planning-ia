@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mon Planning IA</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f4ef;--card:#fff;--tx:#1f2a2e;--mu:#6b777b;--ac:#2f7d6d;--bd:#e3dfd6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15191a;--card:#1f2527;--tx:#eceeed;--mu:#9aa6a9;--ac:#5cc3ae;--bd:#2f3739}}
+:root[data-theme="dark"]{--bg:#15191a;--card:#1f2527;--tx:#eceeed;--mu:#9aa6a9;--ac:#5cc3ae;--bd:#2f3739}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:520px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 12px}
+h2{font-size:15px;margin:0 0 10px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.row>*{flex:1;min-width:0}
+input,select,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:9px}
+button{cursor:pointer;flex:none}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac);width:100%;padding:12px;font-weight:600}
+.act{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)}
+.act span{flex:1}
+.act small{color:var(--mu)}
+.item{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd)}
+.item input{width:22px;height:22px;flex:none}
+.item.done span{text-decoration:line-through;color:var(--mu)}
+.t{font-variant-numeric:tabular-nums;color:var(--ac);font-weight:600;width:52px;flex:none}
+.bars{display:flex;gap:6px;align-items:flex-end;height:80px}
+.bars div{flex:1;text-align:center;font-size:11px;color:var(--mu)}
+.bars i{display:block;background:var(--ac);border-radius:4px 4px 0 0;min-height:3px;margin-bottom:3px}
+.msg{white-space:pre-wrap;color:var(--tx)}
+label{font-size:13px;color:var(--mu)}
+</style>
+</head>
+<body>
+<main>
+<h1>🗓️ Mon Planning IA</h1>
+
+<div class="card">
+<h2>Ma journée</h2>
+<div class="row">
+<div><label>Début</label><input id="st" type="time" value="09:00"></div>
+<div><label>Fin</label><input id="en" type="time" value="21:00"></div>
+</div>
+<div class="row">
+<div><label>Énergie</label>
+<select id="ener"><option value="high">Haute ⚡</option><option value="mid" selected>Moyenne 🙂</option><option value="low">Basse 😴</option></select></div>
+<div><label>Coucher</label><input id="bed" type="time" value="23:00"></div>
+</div>
+<button class="p" id="gen">Générer mon planning</button>
+</div>
+
+<div class="card">
+<h2>Mes activités</h2>
+<div id="acts"></div>
+<div class="row" style="margin-top:10px">
+<input id="nn" placeholder="Nouvelle activité" style="flex:2">
+<input id="nm" type="number" placeholder="min" min="5" step="5" style="flex:1">
+<button id="add">+</button>
+</div>
+</div>
+
+<div class="card">
+<h2>Planning du jour</h2>
+<div id="plan"><small style="color:var(--mu)">Génère ton planning ci-dessus.</small></div>
+</div>
+
+<div class="card">
+<h2>Bilan du soir</h2>
+<button class="p" id="bil">Faire mon bilan</button>
+<p class="msg" id="bm"></p>
+</div>
+
+<div class="card">
+<h2>7 derniers jours (% fait)</h2>
+<div class="bars" id="bars"></div>
+</div>
+</main>
+
+<script>
+var DEF=[
+{n:"Montage vidéo",e:"🎬",m:90,f:3},
+{n:"Lecture",e:"📖",m:30,f:2},
+{n:"Marche",e:"🚶",m:45,f:1}
+];
+function ld(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+var $=function(i){return document.getElementById(i)};
+var today=new Date().toISOString().slice(0,10);
+var acts=ld("acts",DEF), hist=ld("hist",{}), plan=ld("plan:"+today,[]);
+
+function tm(s){var p=s.split(":");return +p[0]*60+ +p[1]}
+function fm(m){m=Math.round(m);return String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
+
+function drawActs(){
+  $("acts").innerHTML=acts.map(function(a,i){
+    return '<div class="act"><b>'+a.e+'</b><span>'+a.n+' <small>'+a.m+' min</small></span><button data-d="'+i+'">×</button></div>';
+  }).join("");
+  document.querySelectorAll("[data-d]").forEach(function(b){
+    b.onclick=function(){acts.splice(+b.dataset.d,1);sv("acts",acts);drawActs()}
+  });
+}
+
+$("add").onclick=function(){
+  var n=$("nn").value.trim(), m=+$("nm").value||30;
+  if(!n)return;
+  acts.push({n:n,e:"✨",m:m,f:2});
+  sv("acts",acts);$("nn").value="";$("nm").value="";drawActs();
+};
+
+// Planning local (fonctionne sans internet). Étape suivante : remplacer par l'IA via /api/plan
+function localPlan(){
+  var s=tm($("st").value), e=tm($("en").value), en=$("ener").value, brk=10;
+  var list=acts.slice();
+  if(en==="high")list.sort(function(a,b){return b.f-a.f});
+  if(en==="low")list.sort(function(a,b){return a.f-b.f});
+  var free=e-s, tot=list.reduce(function(x,a){return x+a.m},0), nb=Math.max(list.length-1,0)*brk;
+  var k=tot+nb>free?Math.max((free-nb)/tot,0.2):1;
+  var t=s, out=[];
+  list.forEach(function(a){
+    var d=Math.max(5,Math.round(a.m*k/5)*5);
+    out.push({n:a.e+" "+a.n,s:fm(t),d:d,m:a.m,done:false});
+    t+=d+brk;
+  });
+  out.push({n:"😴 Coucher",s:$("bed").value,d:0,m:0,done:false});
+  return out;
+}
+
+$("gen").onclick=async function(){
+  var b=$("gen");b.textContent="Génération…";
+  var res=null;
+  try{
+    var r=await fetch("/api/plan",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({acts:acts,start:$("st").value,end:$("en").value,energy:$("ener").value,bed:$("bed").value})});
+    if(r.ok){var j=await r.json();if(j.plan&&j.plan.length)res=j.plan}
+  }catch(e){}
+  plan=res||localPlan();
+  b.textContent="Générer mon planning";
+  save();drawPlan();
+};
+
+function save(){
+  sv("plan:"+today,plan);
+  var done=plan.filter(function(p){return p.d>0}), ok=done.filter(function(p){return p.done}).length;
+  hist[today]=done.length?Math.round(ok/done.length*100):0;
+  sv("hist",hist);drawBars();
+}
+
+function drawPlan(){
+  if(!plan.length)return;
+  $("plan").innerHTML=plan.map(function(p,i){
+    return '<label class="item'+(p.done?" done":"")+'"><input type="checkbox" data-i="'+i+'"'+(p.done?" checked":"")+'><span class="t">'+p.s+'</span><span>'+p.n+(p.d?' <small style="color:var(--mu)">'+p.d+' min</small>':"")+'</span></label>';
+  }).join("");
+  document.querySelectorAll("[data-i]").forEach(function(c){
+    c.onchange=function(){plan[+c.dataset.i].done=c.checked;save();drawPlan()}
+  });
+}
+
+function drawBars(){
+  var h="";
+  for(var i=6;i>=0;i--){
+    var d=new Date();d.setDate(d.getDate()-i);
+    var k=d.toISOString().slice(0,10), v=hist[k]||0;
+    h+='<div><i style="height:'+Math.max(v*0.6,3)+'px"></i>'+["D","L","M","M","J","V","S"][d.getDay()]+'</div>';
+  }
+  $("bars").innerHTML=h;
+}
+
+$("bil").onclick=function(){
+  var w=plan.filter(function(p){return p.d>0});
+  if(!w.length){$("bm").textContent="Génère d'abord un planning.";return}
+  var ok=w.filter(function(p){return p.done}), ko=w.filter(function(p){return !p.done});
+  var pc=Math.round(ok.length/w.length*100), t="Aujourd'hui : "+ok.length+"/"+w.length+" activités faites ("+pc+"%).\n";
+  if(ok.length)t+="✅ Réussi : "+ok.map(function(p){return p.n}).join(", ")+"\n";
+  if(ko.length)t+="🔁 À reporter : "+ko.map(function(p){return p.n}).join(", ")+"\n";
+  t+=pc>=80?"\nSuper journée, garde ce rythme !":pc>=50?"\nBonne base. Demain, mets l'activité la plus importante en premier.":"\nPas grave. Demain, réduis les durées et vise 2 activités seulement.";
+  $("bm").textContent=t;
+};
+
+drawActs();drawPlan();drawBars();
+</script>
+</body>
+</html>
