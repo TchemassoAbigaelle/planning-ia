@@ -5,7 +5,7 @@ Structure :
   api/plan.js  -> fonction serveur (appelle Claude)
 
 ## 1. Clé API
-Crée une clé sur console.anthropic.com (section API Keys). Ne la mets JAMAIS dans le code.
+Crée une clé sur aistudio.google.com (Get API key, gratuit). Ne la mets JAMAIS dans le code.
 
 ## 2. GitHub
   git init
@@ -18,7 +18,7 @@ Crée une clé sur console.anthropic.com (section API Keys). Ne la mets JAMAIS d
 ## 3. Vercel
 1. vercel.com -> Sign up avec GitHub
 2. Add New -> Project -> choisis planning-ia
-3. Environment Variables : ANTHROPIC_API_KEY = ta clé
+3. Environment Variables : GEMINI_API_KEY = ta clé
 4. Deploy -> tu obtiens https://planning-ia.vercel.app
 
 ## 4. Test
